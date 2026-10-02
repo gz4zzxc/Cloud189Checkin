@@ -1,5 +1,5 @@
 name: Cloud check in action
-# Workflow registration refresh: 2026-10-02
+
 on:
   push:
     branches:
@@ -9,88 +9,99 @@ on:
   workflow_dispatch:
   schedule:
     - cron: 35 2 * * *
-jobs:
-  actions-diagnostics:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify Actions job scheduling
-        run: echo "Actions job scheduling is available"
 
+permissions:
+  contents: read
+
+jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: user
+    env:
+      TY_ACCOUNTS: ${{ secrets.TY_ACCOUNTS }}
+      TY_USERNAME_1: ${{ secrets.TY_USERNAME_1 }}
+      TY_PASSWORD_1: ${{ secrets.TY_PASSWORD_1 }}
+      TY_USERNAME_2: ${{ secrets.TY_USERNAME_2 }}
+      TY_PASSWORD_2: ${{ secrets.TY_PASSWORD_2 }}
+      TY_USERNAME_3: ${{ secrets.TY_USERNAME_3 }}
+      TY_PASSWORD_3: ${{ secrets.TY_PASSWORD_3 }}
+      TY_USERNAME_4: ${{ secrets.TY_USERNAME_4 }}
+      TY_PASSWORD_4: ${{ secrets.TY_PASSWORD_4 }}
+      TY_USERNAME_5: ${{ secrets.TY_USERNAME_5 }}
+      TY_PASSWORD_5: ${{ secrets.TY_PASSWORD_5 }}
+      TY_USERNAME_6: ${{ secrets.TY_USERNAME_6 }}
+      TY_PASSWORD_6: ${{ secrets.TY_PASSWORD_6 }}
+      TY_USERNAME_7: ${{ secrets.TY_USERNAME_7 }}
+      TY_PASSWORD_7: ${{ secrets.TY_PASSWORD_7 }}
+      TY_USERNAME_8: ${{ secrets.TY_USERNAME_8 }}
+      TY_PASSWORD_8: ${{ secrets.TY_PASSWORD_8 }}
+      TY_USERNAME_9: ${{ secrets.TY_USERNAME_9 }}
+      TY_PASSWORD_9: ${{ secrets.TY_PASSWORD_9 }}
+      TY_USERNAME_10: ${{ secrets.TY_USERNAME_10 }}
+      TY_PASSWORD_10: ${{ secrets.TY_PASSWORD_10 }}
+      SENDKEY: ${{ secrets.SENDKEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+      WECOM_BOT_TELPHONE: ${{ secrets.WECOM_BOT_TELPHONE }}
+      WX_PUSHER_APP_TOKEN: ${{ secrets.WX_PUSHER_APP_TOKEN }}
+      WX_PUSHER_UID: ${{ secrets.WX_PUSHER_UID }}
+      PUSH_PLUS_TOKEN: ${{ secrets.PUSH_PLUS_TOKEN }}
+      BARK_KEY: ${{ secrets.BARK_KEY }}
+      BARK_SERVER: ${{ secrets.BARK_SERVER }}
+      SHOWDOC_KEY: ${{ secrets.SHOWDOC_KEY }}
+
     steps:
-      - name: 🔀 random delay 0-300 seconds
+      - name: Random delay 0-300 seconds
         run: sleep $((RANDOM % 301))
 
-      - name: 🔌 Check out code
-        uses: actions/checkout@main
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: 🔨 Setup Node.js environment
-        uses: actions/setup-node@main
-        with:
-          node-version: 18
-          cache: npm
-
-      - name: 👾 Check if Debug is true
-        if: vars.debug == '1'
+      - name: Verify Node.js runtime
         run: |
-          echo "CLOUD189_VERBOSE=1" >> $GITHUB_ENV
-      
-      - name: 📹 Restore cached Cookie
-        id: cache-cookie-restore
-        uses: actions/cache/restore@v4
+          node --version
+          npm --version
+
+      - name: Enable verbose logging
+        if: vars.debug == '1'
+        run: echo "CLOUD189_VERBOSE=1" >> "$GITHUB_ENV"
+
+      - name: Restore cached cookie
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .token
           key: cloud189-token-${{ hashFiles('.token/*.json') }}
           restore-keys: cloud189-token-
 
-      - name: 🔧 Init secrets
-        uses: shine1594/secrets-to-env-action@master
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          secrets_env: production
-          prefix_prod: ""
-          file_name_prod: .env
-
-      - name: 📡 Init dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: 🚀 Run
-        uses: nick-fields/retry@master
-        with:
-          timeout_minutes: 30
-          max_attempts: 3
-          command: npm start
+      - name: Run with retry
+        shell: bash
+        run: |
+          set -o pipefail
+          for attempt in 1 2 3; do
+            echo "Attempt ${attempt}/3"
+            if timeout 30m npm start; then
+              exit 0
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "All attempts failed" >&2
+              exit 1
+            fi
+            sleep 5
+          done
 
-      - name: 🔑 Compute token hash
+      - name: Compute token hash
         if: always()
         run: |
           NEW_HASH=$(find .token -name '*.json' -exec sha256sum {} \; 2>/dev/null | sha256sum | cut -d' ' -f1)
-          echo "TOKEN_HASH=${NEW_HASH}" >> $GITHUB_ENV
+          echo "TOKEN_HASH=${NEW_HASH}" >> "$GITHUB_ENV"
 
-      - name: 📹 Save cached Cookie
+      - name: Save cached cookie
         if: always() && env.TOKEN_HASH != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .token
           key: cloud189-token-${{ env.TOKEN_HASH }}
-
-      - name: 🚗 Keep Running
-        if: github.event_name == 'schedule'
-        run: |
-          git config --local user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git config --local user.name "${{ github.actor }}"
-          git remote set-url origin https://${{ github.actor }}:${{ github.token }}@github.com/${{ github.repository }}
-          git pull --rebase --autostash
-          git commit --allow-empty -m "Keep Running..."
-          git push
-
-      - name: 🎉 Delete old workflow run
-        uses: Mattraks/delete-workflow-runs@main
-        with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 50
