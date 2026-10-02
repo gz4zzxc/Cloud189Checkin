@@ -1,0 +1,24 @@
+name: Keep scheduled workflows active
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 17 3 1,15 * *
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Record repository activity
+        shell: bash
+        run: |
+          git config --local user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git config --local user.name "${{ github.actor }}"
+          git commit --allow-empty -m "chore: keep scheduled workflows active [skip actions]"
+          git push
