@@ -19,8 +19,8 @@ jobs:
     environment: user
     env:
       TY_ACCOUNTS: ${{ secrets.TY_ACCOUNTS }}
-      TY_USERNAME_1: ${{ secrets.TY_USERNAME_1 }}
-      TY_PASSWORD_1: ${{ secrets.TY_PASSWORD_1 }}
+      TY_USERNAME_1: ${{ secrets.TY_USERNAME_1 || secrets.TY_USER_NAME }}
+      TY_PASSWORD_1: ${{ secrets.TY_PASSWORD_1 || secrets.TY_PASSWORD }}
       TY_USERNAME_2: ${{ secrets.TY_USERNAME_2 }}
       TY_PASSWORD_2: ${{ secrets.TY_PASSWORD_2 }}
       TY_USERNAME_3: ${{ secrets.TY_USERNAME_3 }}
@@ -53,22 +53,32 @@ jobs:
 
     steps:
       - name: Random delay 0-300 seconds
+        if: github.event_name == 'schedule'
         run: sleep $((RANDOM % 301))
 
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Verify Node.js runtime
+      - name: Set up Node.js 18
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Validate account configuration
+        shell: bash
         run: |
-          node --version
-          npm --version
+          if [[ -z "${TY_ACCOUNTS}" && ( -z "${TY_USERNAME_1}" || -z "${TY_PASSWORD_1}" ) ]]; then
+            echo "::error::No Cloud189 account credentials are configured"
+            exit 1
+          fi
 
       - name: Enable verbose logging
         if: vars.debug == '1'
         run: echo "CLOUD189_VERBOSE=1" >> "$GITHUB_ENV"
 
       - name: Restore cached cookie
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25
         with:
           path: .token
           key: cloud189-token-${{ hashFiles('.token/*.json') }}
@@ -101,7 +111,7 @@ jobs:
 
       - name: Save cached cookie
         if: always() && env.TOKEN_HASH != ''
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25
         with:
           path: .token
           key: cloud189-token-${{ env.TOKEN_HASH }}
