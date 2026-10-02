@@ -103,6 +103,14 @@ jobs:
             sleep 5
           done
 
+      - name: Verify Cloud189 sign-in
+        shell: bash
+        run: |
+          if ! find .token -type f -name '*.json' -print -quit 2>/dev/null | grep -q .; then
+            echo "::error::Cloud189 sign-in did not produce a token. Check account credentials or disable the Cloud189 device lock."
+            exit 1
+          fi
+
       - name: Compute token hash
         if: always()
         run: |
