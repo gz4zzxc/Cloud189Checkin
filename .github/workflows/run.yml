@@ -10,6 +10,13 @@ on:
   schedule:
     - cron: 35 2 * * *
 jobs:
+  actions-diagnostics:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Actions job scheduling
+        run: echo "Actions job scheduling is available"
+
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: user
